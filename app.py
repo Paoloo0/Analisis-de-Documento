@@ -239,6 +239,8 @@ with st.sidebar:
                     gc.collect()
                     if DB_DIR.exists():
                         shutil.rmtree(DB_DIR, ignore_errors=True)
+                    if "vector_store" in st.session_state:
+                        st.session_state["vector_store"] = None
                         
                     st.success("¡Documento eliminado exitosamente!")
                     st.rerun()
@@ -361,7 +363,7 @@ with st.sidebar:
     """)
     
     import sqlite3
-    with st.sidebar.expander("🛠️ Diagnóstico del Sistema"):
+    with st.expander("🛠️ Diagnóstico del Sistema"):
         st.write(f"**OS:** {os.name}")
         st.write(f"**Python:** {sys.version.split()[0]}")
         st.write(f"**SQLite versión:** {sqlite3.sqlite_version}")

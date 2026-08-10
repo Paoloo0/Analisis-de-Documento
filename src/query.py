@@ -30,6 +30,28 @@ def load_vector_store():
     """
     Carga la base de datos vectorial ChromaDB.
     """
+    import streamlit as st
+    if st.runtime.exists():
+        if "vector_store" in st.session_state and st.session_state["vector_store"] is not None:
+            return st.session_state["vector_store"]
+            
+        # Autoreparación: Si no está en session_state pero los metadatos existen, reconstruir en memoria
+        if METADATA_FILE.exists():
+            try:
+                with open(METADATA_FILE, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                file_name = meta.get("file_name")
+                if file_name:
+                    from src.config import DATA_DIR
+                    pdf_path = DATA_DIR / file_name
+                    if pdf_path.exists():
+                        from src.ingest import ingest_file
+                        print(f"[*] Autoreparación: Reconstruyendo base de datos en memoria para {file_name}...")
+                        vector_store = ingest_file(str(pdf_path))
+                        return vector_store
+            except Exception as e:
+                print(f"[!] Error en autoreparación de Chroma en memoria: {e}")
+
     if not DB_DIR.exists() or not list(DB_DIR.glob("*")):
         raise FileNotFoundError(
             f"La base de datos vectorial no existe en: {DB_DIR}. "

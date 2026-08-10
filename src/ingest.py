@@ -192,14 +192,29 @@ def ingest_file(file_path: str):
     
     # PASO 5: Guardar los fragmentos en ChromaDB
     print("[*] Indexando fragmentos en ChromaDB...")
-    vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=str(DB_DIR)
-    )
-    vector_store.persist()
-    print("[+] Fragmentos guardados en ChromaDB.")
     
+    import streamlit as st
+    if os.name != "nt" and st.runtime.exists():
+        # En la nube (Linux) bajo Streamlit, usamos base de datos en memoria
+        # almacenada en st.session_state para evitar problemas de permisos de SQLite.
+        vector_store = Chroma.from_documents(
+            documents=chunks,
+            embedding=embeddings
+        )
+        st.session_state["vector_store"] = vector_store
+        print("[+] Fragmentos guardados en ChromaDB (En Memoria - Streamlit Session State).")
+    else:
+        vector_store = Chroma.from_documents(
+            documents=chunks,
+            embedding=embeddings,
+            persist_directory=str(DB_DIR)
+        )
+        try:
+            vector_store.persist()
+        except Exception:
+            pass
+        print("[+] Fragmentos guardados en ChromaDB (Persistente en disco).")
+        
     # PASO 6: Generar y guardar las preguntas sugeridas dinámicas
     save_document_metadata(file_path, chunks)
     
