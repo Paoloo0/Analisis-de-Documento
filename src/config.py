@@ -10,7 +10,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Directorios de datos y base vectorial
 DATA_DIR = BASE_DIR / "data"
-DB_DIR = BASE_DIR / "chromadb_store"
+
+# En entornos cloud basados en Linux (como Streamlit Cloud), la carpeta del proyecto puede tener
+# restricciones de montaje para SQLite (bloqueos y WAL). Usar /tmp garantiza permisos de escritura.
+if os.name == "nt":
+    DB_DIR = BASE_DIR / "chromadb_store"
+else:
+    DB_DIR = Path("/tmp/chromadb_store")
 
 # Asegurar que los directorios existan
 DATA_DIR.mkdir(exist_ok=True)
