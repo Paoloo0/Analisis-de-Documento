@@ -10,7 +10,6 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from src.config import DATA_DIR, DB_DIR, EMBEDDING_MODEL_NAME, GOOGLE_API_KEY, LLM_MODEL_NAME, METADATA_FILE
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -160,11 +159,12 @@ def ingest_file(file_path: str):
     chunks = text_splitter.split_documents(documents)
     print(f"[+] Texto dividido en {len(chunks)} fragmentos (chunks).")
     
-    # PASO 3: Inicializar el modelo de embeddings
-    print(f"[*] Descargando e inicializando modelo de embeddings: {EMBEDDING_MODEL_NAME}...")
-    embeddings = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={'device': 'cpu'}
+    # PASO 3: Inicializar el modelo de embeddings (usando la API de Gemini para evitar consumo de RAM y caídas OOM en la nube)
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    print("[*] Inicializando modelo de embeddings de Gemini (remoto)...")
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=GOOGLE_API_KEY
     )
     print("[+] Modelo de embeddings listo.")
     

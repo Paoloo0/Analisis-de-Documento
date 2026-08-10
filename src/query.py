@@ -7,7 +7,6 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from src.config import DB_DIR, EMBEDDING_MODEL_NAME, GOOGLE_API_KEY, LLM_MODEL_NAME, METADATA_FILE
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -58,9 +57,10 @@ def load_vector_store():
             "Por favor, indexa un documento primero desde la web."
         )
         
-    embeddings = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={'device': 'cpu'}
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=GOOGLE_API_KEY
     )
     
     vector_store = Chroma(
