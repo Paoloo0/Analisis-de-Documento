@@ -359,6 +359,21 @@ with st.sidebar:
     3. **Búsqueda Vectorial:** ChromaDB busca fragmentos relevantes de tu archivo para responder tu pregunta.
     4. **Generación veraz:** Gemini redacta la respuesta usando únicamente el contexto recuperado, citando el origen exacto.
     """)
+    
+    import sqlite3
+    with st.sidebar.expander("🛠️ Diagnóstico del Sistema"):
+        st.write(f"**OS:** {os.name}")
+        st.write(f"**Python:** {sys.version.split()[0]}")
+        st.write(f"**SQLite versión:** {sqlite3.sqlite_version}")
+        st.write(f"**DB Path:** `{DB_DIR}`")
+        try:
+            DB_DIR.mkdir(parents=True, exist_ok=True)
+            test_f = DB_DIR / "test.txt"
+            test_f.write_text("ok")
+            test_f.unlink()
+            st.success("Escritura en DB_DIR: OK")
+        except Exception as e:
+            st.error(f"Escritura en DB_DIR: Error: {e}")
 
 # --- PÁGINA PRINCIPAL ---
 
