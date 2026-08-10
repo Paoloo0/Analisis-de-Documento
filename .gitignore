@@ -1,0 +1,28 @@
+# Entorno Virtual
+.venv/
+venv/
+env/
+ENV/
+
+# Base de datos vectorial (ChromaDB)
+chromadb_store/
+
+# Archivos de configuración sensible
+.env
+
+# Archivos de datos subidos (para que cada clonación empiece limpia)
+data/*
+!data/.gitkeep
+
+# Caché de Python y compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini

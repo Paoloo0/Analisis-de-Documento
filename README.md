@@ -1,0 +1,86 @@
+# Analizador Inteligente de Documentos (RAG)
+
+Esta es una plataforma universal MVP de Preguntas y Respuestas (Q&A) basada en **RAG (Retrieval-Augmented Generation)**. Permite a los usuarios subir cualquier tipo de archivo PDF o de Texto (.txt) e interactuar directamente con él a través de consultas en lenguaje natural.
+
+El sistema autodetecta y adapta la interfaz al tema de tu documento, y utiliza el LLM (Gemini) para generar preguntas sugeridas clave basadas en su contenido desde el primer instante.
+
+---
+
+## 🏗️ Arquitectura de Datos RAG
+
+El flujo de información de la plataforma se compone de dos fases:
+
+### 1. Ingesta y Adaptación
+*   **Carga:** El usuario sube un archivo (.pdf o .txt). El sistema limpia la base vectorial anterior para evitar mezclas de contexto.
+*   **Segmentación (Chunking):** El texto se corta en bloques de **1000 caracteres** con un solape de **200 caracteres (20%)** para mantener la coherencia y evitar cortes en mitad de oraciones o fórmulas.
+*   **Vectorización (Embeddings):** Cada bloque se traduce a un vector numérico de 384 dimensiones usando el modelo local `all-MiniLM-L6-v2`.
+*   **Guardado en ChromaDB:** Los fragmentos vectorizados se guardan en la base local `chromadb_store/`.
+*   **Análisis Dinámico:** El LLM (**Gemini**) analiza un fragmento inicial del documento y genera **3 preguntas sugeridas de ejemplo** que se guardan en `data/metadata.json` para personalizar la web.
+
+### 2. Consulta y Respuestas
+*   **Retrieval (Recuperación):** Al escribir una pregunta, ChromaDB realiza una búsqueda con **MMR (Maximum Marginal Relevance)** evaluando 30 candidatos (`fetch_k=30`) y seleccionando los **10 fragmentos** más diversos y relevantes (`k=10`) para optimizar la respuesta.
+*   **Generation (Generación):** Estos fragmentos se insertan como contexto en un prompt del sistema. Gemini redacta la respuesta basándose en ese contexto y cita las fuentes correspondientes (páginas y textos originales) para asegurar veracidad total.
+
+---
+
+## 📁 Estructura del Proyecto
+
+```text
+analizador_documentos_rag/
+├── data/
+│   └── metadata.json               # Almacena dinámicamente el título y sugerencias del documento activo
+├── chromadb_store/                 # Directorio local de base de datos vectorial ChromaDB
+├── src/
+│   ├── config.py                   # Configuración del entorno, rutas y modelos
+│   ├── ingest.py                   # Lógica para indexar y autogenerar preguntas clave del documento
+│   └── query.py                    # Motor de recuperación semántica y generación con LangChain
+├── app.py                          # Interfaz interactiva de Streamlit (UI universal adaptativa)
+└── requirements.txt                # Librerías y dependencias necesarias
+```
+
+---
+
+## 🛠️ Instalación y Configuración
+
+### 1. Requisitos
+*   Python 3.10 o superior (Se recomienda 3.12).
+*   Una API Key de Google Gemini (puedes crearla de forma gratuita en [Google AI Studio](https://aistudio.google.com/)).
+
+### 2. Instalación de Dependencias
+Abre una terminal en la carpeta del proyecto y ejecuta:
+
+```bash
+# Crear entorno virtual
+python -m venv venv
+
+# Activar entorno virtual (en Windows)
+.\venv\Scripts\activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+```
+
+### 3. Configurar API Key de Gemini
+Crea un archivo llamado `.env` en la raíz del proyecto y escribe tu clave de API:
+
+```text
+GOOGLE_API_KEY=tu_clave_de_api_aquí
+```
+
+---
+
+## 🚀 Cómo Ejecutar la Aplicación
+
+Una vez configurado tu entorno, inicia la aplicación web interactiva:
+
+```bash
+streamlit run app.py
+```
+
+Streamlit abrirá tu navegador web por defecto en la dirección: `http://localhost:8501`.
+
+### Primeros Pasos:
+*   Si la base de datos está limpia, la aplicación te mostrará un gran **cargador de archivos** en el centro.
+*   Arrastra y suelta cualquier archivo PDF o de texto.
+*   Haz clic en **"Iniciar Ingesta y Análisis"**.
+*   ¡Listo! Verás que la interfaz se transforma automáticamente para coincidir con tu documento y te presenta 3 botones con preguntas sugeridas clave del tema de tu archivo para empezar a chatear.
