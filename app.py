@@ -244,8 +244,40 @@ with st.sidebar:
     with st.sidebar.expander("🔑 Gestionar Clave API ⋯"):
         st.write("**Clave de API actual:**")
         if GOOGLE_API_KEY:
-            masked_key = f"{GOOGLE_API_KEY[:8]}...{GOOGLE_API_KEY[-5:]}" if len(GOOGLE_API_KEY) > 13 else GOOGLE_API_KEY
-            st.code(masked_key, language="")
+            col_key, col_del_key = st.columns([0.82, 0.18])
+            with col_key:
+                masked_key = f"{GOOGLE_API_KEY[:8]}...{GOOGLE_API_KEY[-5:]}" if len(GOOGLE_API_KEY) > 13 else GOOGLE_API_KEY
+                st.code(masked_key, language="")
+            with col_del_key:
+                st.write("") # Alineador vertical
+                if st.button("🗑️", key="delete_api_key", help="Eliminar la clave de API actual"):
+                    try:
+                        # 1. Eliminar .env
+                        env_path = Path(__file__).resolve().parent / ".env"
+                        if env_path.exists():
+                            os.remove(env_path)
+                        # 2. Quitar del entorno de la sesión activa
+                        if "GOOGLE_API_KEY" in os.environ:
+                            del os.environ["GOOGLE_API_KEY"]
+                        # 3. Recargar módulos
+                        import importlib
+                        import src.config
+                        import src.query
+                        import src.ingest
+                        src.config.GOOGLE_API_KEY = ""
+                        src.query.GOOGLE_API_KEY = ""
+                        src.ingest.GOOGLE_API_KEY = ""
+                        importlib.reload(src.config)
+                        importlib.reload(src.query)
+                        importlib.reload(src.ingest)
+                        
+                        # 4. Cambiar la clave del widget de texto para resetearlo a vacío
+                        st.session_state["api_input_key"] = f"new_api_key_input_{int(time.time())}"
+                        
+                        st.success("¡Clave de API eliminada!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
         else:
             st.info("No configurada.")
             
@@ -343,16 +375,19 @@ if not db_exists:
             
         st.success(f"Archivo guardado exitosamente: `{main_file.name}`")
         
-        if st.button("🚀 Iniciar Ingesta y Análisis", type="primary"):
-            with st.spinner("Indexando y analizando el contenido del documento..."):
-                try:
-                    ingest_file(str(save_path))
-                    # Cambiar la clave del widget para forzar la recarga limpia en la pantalla de inicio
-                    st.session_state["main_uploader_key"] = f"main_uploader_{int(time.time())}"
-                    st.success("¡Documento indexado con éxito! Cargando interfaz conversacional...")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al procesar: {e}")
+        if not is_key_configured:
+            st.warning("⚠️ **Clave de API de Gemini faltante.** Por favor, configura una clave válida en la barra lateral (*🔑 Gestionar Clave API*) para poder iniciar la ingesta y analizar documentos.")
+        else:
+            if st.button("🚀 Iniciar Ingesta y Análisis", type="primary"):
+                with st.spinner("Indexando y analizando el contenido del documento..."):
+                    try:
+                        ingest_file(str(save_path))
+                        # Cambiar la clave del widget para forzar la recarga limpia en la pantalla de inicio
+                        st.session_state["main_uploader_key"] = f"main_uploader_{int(time.time())}"
+                        st.success("¡Documento indexado con éxito! Cargando interfaz conversacional...")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al procesar: {e}")
     else:
         st.info("💡 Por favor, selecciona o arrastra un archivo de texto (.txt) o PDF (.pdf) en el recuadro superior para poder chatear con él.")
 
@@ -361,58 +396,62 @@ else:
     st.markdown(f'<div class="main-title">Analizador de: {doc_title}</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="subtitle">Preguntas y respuestas automáticas basadas en el documento activo <code>{file_name}</code>.</div>', unsafe_allow_html=True)
     
-    # Preguntas sugeridas dinámicas
-    if suggested_questions:
-        st.markdown("### 💡 Preguntas sugeridas sobre este documento:")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if len(suggested_questions) > 0 and st.button(suggested_questions[0]):
-                st.session_state.pregunta = suggested_questions[0]
-        with col2:
-            if len(suggested_questions) > 1 and st.button(suggested_questions[1]):
-                st.session_state.pregunta = suggested_questions[1]
-        with col3:
-            if len(suggested_questions) > 2 and st.button(suggested_questions[2]):
-                st.session_state.pregunta = suggested_questions[2]
-                
-    if "pregunta" not in st.session_state:
-        st.session_state.pregunta = ""
-        
-    # Input de búsqueda
-    user_query = st.text_input(
-        "Haz tu pregunta sobre el contenido del documento:",
-        value=st.session_state.pregunta,
-        placeholder="Ej: ¿Cuáles son las conclusiones o puntos principales descritos en el texto?"
-    )
-    
-    if user_query:
-        st.markdown("---")
-        with st.spinner("Buscando en el documento y redactando respuesta..."):
-            result = query_assistant(user_query)
+    # Restricción por falta de API Key
+    if not is_key_configured:
+        st.warning("⚠️ **Clave de API de Gemini faltante.** Por favor, ingresa una clave de API válida en la barra lateral en la sección *🔑 Gestionar Clave API ⋯* para poder realizar consultas sobre el documento.")
+    else:
+        # Preguntas sugeridas dinámicas
+        if suggested_questions:
+            st.markdown("### 💡 Preguntas sugeridas sobre este documento:")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if len(suggested_questions) > 0 and st.button(suggested_questions[0]):
+                    st.session_state.pregunta = suggested_questions[0]
+            with col2:
+                if len(suggested_questions) > 1 and st.button(suggested_questions[1]):
+                    st.session_state.pregunta = suggested_questions[1]
+            with col3:
+                if len(suggested_questions) > 2 and st.button(suggested_questions[2]):
+                    st.session_state.pregunta = suggested_questions[2]
+                    
+        if "pregunta" not in st.session_state:
+            st.session_state.pregunta = ""
             
-        st.markdown("### 💬 Respuesta del Asistente")
-        st.markdown(
-            f'<div class="answer-box">{result["answer"]}</div>', 
-            unsafe_allow_html=True
+        # Input de búsqueda
+        user_query = st.text_input(
+            "Haz tu pregunta sobre el contenido del documento:",
+            value=st.session_state.pregunta,
+            placeholder="Ej: ¿Cuáles son las conclusiones o puntos principales descritos en el texto?"
         )
         
-        # Mostrar los fragmentos citados
-        st.markdown("### 📚 Fragmentos de Origen Citados")
-        if result["sources"]:
-            for i, doc in enumerate(result["sources"], 1):
-                source_name = Path(doc.metadata.get("source", file_name)).name
-                page = doc.metadata.get("page", None)
+        if user_query:
+            st.markdown("---")
+            with st.spinner("Buscando en el documento y redactando respuesta..."):
+                result = query_assistant(user_query)
                 
-                if page is not None:
-                    page_str = f" | Página {page + 1}"
-                else:
-                    page_str = ""
+            st.markdown("### 💬 Respuesta del Asistente")
+            st.markdown(
+                f'<div class="answer-box">{result["answer"]}</div>', 
+                unsafe_allow_html=True
+            )
+            
+            # Mostrar los fragmentos citados
+            st.markdown("### 📚 Fragmentos de Origen Citados")
+            if result["sources"]:
+                for i, doc in enumerate(result["sources"], 1):
+                    source_name = Path(doc.metadata.get("source", file_name)).name
+                    page = doc.metadata.get("page", None)
                     
-                st.markdown(f"""
-                <div class="source-card">
-                    <div class="source-header">Fragmento {i}: {source_name}{page_str}</div>
-                    <div class="source-body">"{doc.page_content}"</div>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.write("No se recuperaron fragmentos específicos para esta consulta.")
+                    if page is not None:
+                        page_str = f" | Página {page + 1}"
+                    else:
+                        page_str = ""
+                        
+                    st.markdown(f"""
+                    <div class="source-card">
+                        <div class="source-header">Fragmento {i}: {source_name}{page_str}</div>
+                        <div class="source-body">"{doc.page_content}"</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.write("No se recuperaron fragmentos específicos para esta consulta.")
