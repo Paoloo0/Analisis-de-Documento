@@ -1,11 +1,20 @@
 import os
+import sys
+from pathlib import Path
+
+# HACK de compatibilidad para ChromaDB y SQLite en Streamlit Community Cloud (Linux)
+if os.name != "nt":
+    try:
+        __import__('pysqlite3')
+        sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    except ImportError:
+        pass
+
 import json
 import time
 import streamlit as st
-from pathlib import Path
 
 # Agregar la ruta del proyecto al path de Python para permitir importaciones correctas
-import sys
 sys.path.append(str(Path(__file__).resolve().parent))
 
 from src.config import DATA_DIR, DB_DIR, GOOGLE_API_KEY, METADATA_FILE
