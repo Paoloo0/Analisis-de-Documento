@@ -10,7 +10,7 @@ class SafeGeminiEmbeddings(Embeddings):
     (sleep) si se alcanza el límite de cuota (error 429 / RESOURCE_EXHAUSTED).
     Evita caídas de RAM (OOM) al no cargar modelos locales y elude bloqueos por cuota.
     """
-    def __init__(self, google_api_key, batch_size=40, sleep_seconds=4):
+    def __init__(self, google_api_key, batch_size=100, sleep_seconds=2):
         self.base = GoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=google_api_key

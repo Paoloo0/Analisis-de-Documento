@@ -146,8 +146,8 @@ def ingest_file(file_path: str):
     print(f"[+] Documento cargado exitosamente. Total de páginas/documentos: {len(documents)}")
     
     # PASO 2: Dividir el texto en fragmentos (Chunks)
-    chunk_size = 1000
-    chunk_overlap = 200
+    chunk_size = 2000
+    chunk_overlap = 400
     
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
