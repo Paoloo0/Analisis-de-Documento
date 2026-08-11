@@ -59,7 +59,7 @@ def load_vector_store():
         
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         google_api_key=GOOGLE_API_KEY
     )
     
