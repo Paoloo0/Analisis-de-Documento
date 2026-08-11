@@ -57,12 +57,8 @@ def load_vector_store():
             "Por favor, indexa un documento primero desde la web."
         )
         
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
-        google_api_key=GOOGLE_API_KEY,
-        max_retries=10
-    )
+    from src.embeddings import get_embeddings
+    embeddings = get_embeddings(GOOGLE_API_KEY)
     
     vector_store = Chroma(
         persist_directory=str(DB_DIR),

@@ -159,14 +159,10 @@ def ingest_file(file_path: str):
     chunks = text_splitter.split_documents(documents)
     print(f"[+] Texto dividido en {len(chunks)} fragmentos (chunks).")
     
-    # PASO 3: Inicializar el modelo de embeddings (usando la API de Gemini para evitar consumo de RAM y caídas OOM en la nube)
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
-    print("[*] Inicializando modelo de embeddings de Gemini (remoto)...")
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
-        google_api_key=GOOGLE_API_KEY,
-        max_retries=10
-    )
+    # PASO 3: Inicializar el modelo de embeddings (usando la API de Gemini con limitador de velocidad personalizado para evitar errores 429)
+    from src.embeddings import get_embeddings
+    print("[*] Inicializando modelo de embeddings de Gemini con limitador de tasa...")
+    embeddings = get_embeddings(GOOGLE_API_KEY)
     print("[+] Modelo de embeddings listo.")
     
     # PASO 4: Limpiar la persistencia anterior de ChromaDB
