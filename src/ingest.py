@@ -164,7 +164,8 @@ def ingest_file(file_path: str):
     print("[*] Inicializando modelo de embeddings de Gemini (remoto)...")
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
-        google_api_key=GOOGLE_API_KEY
+        google_api_key=GOOGLE_API_KEY,
+        max_retries=10
     )
     print("[+] Modelo de embeddings listo.")
     

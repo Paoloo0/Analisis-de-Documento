@@ -60,7 +60,8 @@ def load_vector_store():
     from langchain_google_genai import GoogleGenerativeAIEmbeddings
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
-        google_api_key=GOOGLE_API_KEY
+        google_api_key=GOOGLE_API_KEY,
+        max_retries=10
     )
     
     vector_store = Chroma(
@@ -140,7 +141,8 @@ def query_assistant(question: str):
         llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL_NAME,
             google_api_key=GOOGLE_API_KEY,
-            temperature=0.0
+            temperature=0.0,
+            max_retries=10
         )
         
         # 4. Formatear el contexto recuperado
