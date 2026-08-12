@@ -163,29 +163,33 @@ def ingest_file(file_path: str):
     from src.embeddings import get_embeddings
     print("[*] Inicializando modelo de embeddings de Gemini con limitador de tasa...")
     embeddings = get_embeddings(GOOGLE_API_KEY)
+    print(f"[DEBUG] GOOGLE_API_KEY configured: {GOOGLE_API_KEY is not None}")
+    print(f"[DEBUG] embeddings class: {type(embeddings)}")
     print("[+] Modelo de embeddings listo.")
     
     # PASO 4: Limpiar la persistencia anterior de ChromaDB
     # Esto asegura que el asistente responda SÓLO sobre el archivo cargado actualmente
     print(f"[*] Limpiando base de datos de ChromaDB en: {DB_DIR}...")
-    try:
-        import gc
-        gc.collect()
-        from chromadb import PersistentClient
-        client = PersistentClient(path=str(DB_DIR))
-        for collection in client.list_collections():
-            client.delete_collection(collection.name)
-        print("[+] Colecciones internas de ChromaDB vaciadas exitosamente.")
-    except Exception as chroma_err:
-        print(f"[!] Advertencia al vaciar colecciones de ChromaDB: {chroma_err}")
+    
+    # Limpiar session state si existe
+    import streamlit as st
+    if "vector_store" in st.session_state:
+        st.session_state["vector_store"] = None
+        
+    import gc
+    gc.collect()
 
     if DB_DIR.exists():
         try:
             shutil.rmtree(DB_DIR)
-            print("[+] Directorio físico de ChromaDB eliminado para evitar mezcla de contextos.")
+            print("[+] Directorio físico de ChromaDB eliminado.")
         except Exception as e:
             print(f"[!] Advertencia: No se pudo eliminar el directorio físico de ChromaDB (bloqueo por SO): {e}")
-    DB_DIR.mkdir(exist_ok=True)
+            
+    try:
+        DB_DIR.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[!] Advertencia al crear directorio de ChromaDB: {e}")
     
     # PASO 5: Guardar los fragmentos en ChromaDB
     print("[*] Indexando fragmentos en ChromaDB...")
