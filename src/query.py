@@ -30,7 +30,7 @@ def load_vector_store():
     Carga la base de datos vectorial ChromaDB.
     """
     import streamlit as st
-    if st.runtime.exists():
+    if os.name != "nt" and st.runtime.exists():
         if "vector_store" in st.session_state and st.session_state["vector_store"] is not None:
             return st.session_state["vector_store"]
             
