@@ -41,19 +41,20 @@ if METADATA_FILE.exists():
     try:
         with open(METADATA_FILE, "r", encoding="utf-8") as f:
             metadata = json.load(f)
-            doc_title = metadata.get("document_title", "Documento Indexado")
-            file_name = metadata.get("file_name", "")
-            suggested_questions = metadata.get("suggested_questions", [])
-            db_dir_str = metadata.get("db_dir")
-            if db_dir_str:
-                active_db_dir = Path(db_dir_str)
-                db_exists = active_db_dir.exists() and len(list(active_db_dir.glob("*"))) > 0
+            file_name = metadata.get("file_name", "").strip()
+            if file_name:  # Solo si hay un archivo activo asignado
+                doc_title = metadata.get("document_title", "Documento Indexado")
+                suggested_questions = metadata.get("suggested_questions", [])
+                db_dir_str = metadata.get("db_dir")
+                if db_dir_str:
+                    active_db_dir = Path(db_dir_str)
+                    db_exists = active_db_dir.exists() and len(list(active_db_dir.glob("*"))) > 0
+                else:
+                    # Para compatibilidad con metadatos antiguos
+                    active_db_dir = DB_DIR
+                    db_exists = DB_DIR.exists() and len(list(DB_DIR.glob("*"))) > 0
     except Exception as e:
         print(f"Error cargando metadatos: {e}")
-
-# Fallback si no se encontró db_dir en metadatos pero existe la carpeta por defecto
-if not db_exists:
-    db_exists = DB_DIR.exists() and len(list(DB_DIR.glob("*"))) > 0
 
 # Configuración de la página en Streamlit
 st.set_page_config(
@@ -232,17 +233,21 @@ with st.sidebar:
                 try:
                     import shutil
                     import gc
-                    # 1. Eliminar archivo físico de la carpeta data/
-                    active_file_path = DATA_DIR / file_name
-                    if active_file_path.exists():
-                        try:
-                            os.remove(active_file_path)
-                        except Exception as file_err:
-                            print(f"Advertencia al borrar archivo físico: {file_err}")
+                    # 1. Eliminar archivo físico de la carpeta data/ si el nombre es válido y es un archivo
+                    if file_name:
+                        active_file_path = DATA_DIR / file_name
+                        if active_file_path.exists() and active_file_path.is_file():
+                            try:
+                                os.remove(active_file_path)
+                            except Exception as file_err:
+                                print(f"Advertencia al borrar archivo físico: {file_err}")
                             
                     # 2. Eliminar el JSON de metadatos
                     if METADATA_FILE.exists():
-                        os.remove(METADATA_FILE)
+                        try:
+                            os.remove(METADATA_FILE)
+                        except Exception as meta_err:
+                            print(f"Advertencia al borrar metadatos: {meta_err}")
                         
                     # 3. Intentar limpiar base vectorial de ChromaDB
                     gc.collect()
