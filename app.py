@@ -34,17 +34,26 @@ file_name = ""
 suggested_questions = []
 
 # Verificar si la base vectorial está creada y si existe el archivo de metadatos del documento activo
-db_exists = METADATA_FILE.exists() and DB_DIR.exists() and len(list(DB_DIR.glob("*"))) > 0
+db_exists = False
+active_db_dir = DB_DIR
 
-if db_exists and METADATA_FILE.exists():
+if METADATA_FILE.exists():
     try:
         with open(METADATA_FILE, "r", encoding="utf-8") as f:
             metadata = json.load(f)
             doc_title = metadata.get("document_title", "Documento Indexado")
             file_name = metadata.get("file_name", "")
             suggested_questions = metadata.get("suggested_questions", [])
+            db_dir_str = metadata.get("db_dir")
+            if db_dir_str:
+                active_db_dir = Path(db_dir_str)
+                db_exists = active_db_dir.exists() and len(list(active_db_dir.glob("*"))) > 0
     except Exception as e:
         print(f"Error cargando metadatos: {e}")
+
+# Fallback si no se encontró db_dir en metadatos pero existe la carpeta por defecto
+if not db_exists:
+    db_exists = DB_DIR.exists() and len(list(DB_DIR.glob("*"))) > 0
 
 # Configuración de la página en Streamlit
 st.set_page_config(
@@ -237,6 +246,8 @@ with st.sidebar:
                         
                     # 3. Intentar limpiar base vectorial de ChromaDB
                     gc.collect()
+                    if active_db_dir.exists() and active_db_dir != DB_DIR:
+                        shutil.rmtree(active_db_dir, ignore_errors=True)
                     if DB_DIR.exists():
                         shutil.rmtree(DB_DIR, ignore_errors=True)
                     if "vector_store" in st.session_state:

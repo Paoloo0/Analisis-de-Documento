@@ -51,9 +51,21 @@ def load_vector_store():
             except Exception as e:
                 print(f"[!] Error en autoreparación de Chroma en memoria: {e}")
 
-    if not DB_DIR.exists() or not list(DB_DIR.glob("*")):
+    # Leer el directorio de base de datos específico para este documento de metadata.json
+    active_db_dir = DB_DIR
+    if METADATA_FILE.exists():
+        try:
+            with open(METADATA_FILE, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+                db_dir_str = metadata.get("db_dir")
+                if db_dir_str:
+                    active_db_dir = Path(db_dir_str)
+        except Exception:
+            pass
+
+    if not active_db_dir.exists() or not list(active_db_dir.glob("*")):
         raise FileNotFoundError(
-            f"La base de datos vectorial no existe en: {DB_DIR}. "
+            f"La base de datos vectorial no existe en: {active_db_dir}. "
             "Por favor, indexa un documento primero desde la web."
         )
         
@@ -61,7 +73,7 @@ def load_vector_store():
     embeddings = get_embeddings(GOOGLE_API_KEY)
     
     vector_store = Chroma(
-        persist_directory=str(DB_DIR),
+        persist_directory=str(active_db_dir),
         embedding_function=embeddings
     )
     return vector_store

@@ -85,7 +85,7 @@ def generate_suggested_questions(document_sample: str, doc_name: str) -> list:
             "¿Qué directivas o conceptos clave se explican en el documento?"
         ]
 
-def save_document_metadata(file_path: str, chunks: list):
+def save_document_metadata(file_path: str, chunks: list, db_dir_path: str):
     """
     Extrae información del archivo subido, genera las preguntas sugeridas dinámicas
     y guarda los metadatos en un archivo JSON.
@@ -106,7 +106,8 @@ def save_document_metadata(file_path: str, chunks: list):
     metadata = {
         "file_name": file_name,
         "document_title": doc_title,
-        "suggested_questions": suggested_questions
+        "suggested_questions": suggested_questions,
+        "db_dir": db_dir_path
     }
     
     # Escribir metadatos a archivo JSON
@@ -116,6 +117,7 @@ def save_document_metadata(file_path: str, chunks: list):
     print(f"[+] Metadatos del documento guardados en: {METADATA_FILE}")
     print(f"    - Título: {doc_title}")
     print(f"    - Preguntas sugeridas: {suggested_questions}")
+    print(f"    - Directorio DB: {db_dir_path}")
 
 def ingest_file(file_path: str):
     """
@@ -169,7 +171,10 @@ def ingest_file(file_path: str):
     
     # PASO 4: Limpiar la persistencia anterior de ChromaDB
     # Esto asegura que el asistente responda SÓLO sobre el archivo cargado actualmente
-    print(f"[*] Limpiando base de datos de ChromaDB en: {DB_DIR}...")
+    import time
+    safe_name = "".join([c if c.isalnum() else "_" for c in path_obj.stem])
+    unique_db_dir = DB_DIR / f"db_{safe_name}_{int(time.time())}"
+    print(f"[*] Carpeta de base de datos asignada: {unique_db_dir}")
     
     # Limpiar session state si existe
     import streamlit as st
@@ -179,32 +184,19 @@ def ingest_file(file_path: str):
     import gc
     gc.collect()
 
-    # Primero intentamos eliminar la colección usando la API de ChromaDB.
-    # Esto es más seguro en Windows ya que SQLite mantiene bloqueada la base de datos
-    # y shutil.rmtree suele fallar con PermissionError.
-    collection_deleted = False
-    if DB_DIR.exists() and list(DB_DIR.glob("*")):
-        try:
-            vector_store = Chroma(
-                persist_directory=str(DB_DIR),
-                embedding_function=embeddings
-            )
-            vector_store.delete_collection()
-            print("[+] Colección de ChromaDB eliminada exitosamente.")
-            collection_deleted = True
-        except Exception as e:
-            print(f"[!] Advertencia: No se pudo eliminar la colección de ChromaDB: {e}")
+    # Intentamos borrar bases de datos viejas en DB_DIR para ahorrar espacio.
+    # Si están bloqueadas por el SO, se ignora y se continúa.
+    if DB_DIR.exists():
+        for old_dir in DB_DIR.glob("db_*"):
+            if old_dir.is_dir() and old_dir != unique_db_dir:
+                try:
+                    shutil.rmtree(old_dir)
+                    print(f"[+] Carpeta antigua eliminada: {old_dir.name}")
+                except Exception:
+                    pass
 
-    # Si no pudimos borrar la colección mediante la API (o no existía), intentamos borrar el directorio físico como fallback.
-    if not collection_deleted and DB_DIR.exists():
-        try:
-            shutil.rmtree(DB_DIR)
-            print("[+] Directorio físico de ChromaDB eliminado.")
-        except Exception as e:
-            print(f"[!] Advertencia: No se pudo eliminar el directorio físico de ChromaDB (bloqueo por SO): {e}")
-            
     try:
-        DB_DIR.mkdir(parents=True, exist_ok=True)
+        unique_db_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         print(f"[!] Advertencia al crear directorio de ChromaDB: {e}")
     
@@ -225,7 +217,7 @@ def ingest_file(file_path: str):
         vector_store = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
-            persist_directory=str(DB_DIR)
+            persist_directory=str(unique_db_dir)
         )
         try:
             vector_store.persist()
@@ -234,7 +226,7 @@ def ingest_file(file_path: str):
         print("[+] Fragmentos guardados en ChromaDB (Persistente en disco).")
         
     # PASO 6: Generar y guardar las preguntas sugeridas dinámicas
-    save_document_metadata(file_path, chunks)
+    save_document_metadata(file_path, chunks, str(unique_db_dir))
     
     print("[+] ¡Indexación y adaptación completadas con éxito!")
     return vector_store
