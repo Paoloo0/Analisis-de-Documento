@@ -179,7 +179,24 @@ def ingest_file(file_path: str):
     import gc
     gc.collect()
 
-    if DB_DIR.exists():
+    # Primero intentamos eliminar la colección usando la API de ChromaDB.
+    # Esto es más seguro en Windows ya que SQLite mantiene bloqueada la base de datos
+    # y shutil.rmtree suele fallar con PermissionError.
+    collection_deleted = False
+    if DB_DIR.exists() and list(DB_DIR.glob("*")):
+        try:
+            vector_store = Chroma(
+                persist_directory=str(DB_DIR),
+                embedding_function=embeddings
+            )
+            vector_store.delete_collection()
+            print("[+] Colección de ChromaDB eliminada exitosamente.")
+            collection_deleted = True
+        except Exception as e:
+            print(f"[!] Advertencia: No se pudo eliminar la colección de ChromaDB: {e}")
+
+    # Si no pudimos borrar la colección mediante la API (o no existía), intentamos borrar el directorio físico como fallback.
+    if not collection_deleted and DB_DIR.exists():
         try:
             shutil.rmtree(DB_DIR)
             print("[+] Directorio físico de ChromaDB eliminado.")

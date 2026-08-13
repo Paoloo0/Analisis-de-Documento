@@ -10,7 +10,7 @@ class SafeGeminiEmbeddings(Embeddings):
     (sleep) si se alcanza el límite de cuota (error 429 / RESOURCE_EXHAUSTED).
     Evita caídas de RAM (OOM) al no cargar modelos locales y elude bloqueos por cuota.
     """
-    def __init__(self, google_api_key, batch_size=100, sleep_seconds=2):
+    def __init__(self, google_api_key, batch_size=15, sleep_seconds=4):
         self.base = GoogleGenerativeAIEmbeddings(
             model="models/gemini-embedding-001",
             google_api_key=google_api_key
@@ -40,7 +40,7 @@ class SafeGeminiEmbeddings(Embeddings):
                     # Si es error de cuota (429) o agotado (RESOURCE_EXHAUSTED)
                     if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
                         wait_time = 15 * (attempt + 1)
-                        print(f"[!] Límite de cuota Gemini alcanzado (429). Esperando {wait_time}s para reintentar...")
+                        print(f"[!] Límite de cuota Gemini alcanzado (429). Detalles: {error_msg}. Esperando {wait_time}s para reintentar...")
                         time.sleep(wait_time)
                     else:
                         if attempt == 5:
