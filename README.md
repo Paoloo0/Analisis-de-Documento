@@ -1,7 +1,5 @@
 # 📂 Analizador Inteligente de Documentos (RAG)
 
-Desarrollé esta plataforma para aplicar de manera práctica conceptos de **Ingeniería de Inteligencia Artificial** y arquitecturas de datos avanzadas.
-
 Se trata de un **MVP (Producto Mínimo Viable)** de Preguntas y Respuestas (Q&A) basado en **RAG (Retrieval-Augmented Generation)**. Permite subir cualquier archivo PDF o de Texto (.txt) e interactuar directamente con él en lenguaje natural, obteniendo respuestas precisas respaldadas por las fuentes del propio documento.
 
 ---
