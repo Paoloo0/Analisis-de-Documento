@@ -1,8 +1,16 @@
-# Analizador Inteligente de Documentos (RAG)
+# 📂 Analizador Inteligente de Documentos (RAG)
 
-Esta es una plataforma universal MVP de Preguntas y Respuestas (Q&A) basada en **RAG (Retrieval-Augmented Generation)**. Permite a los usuarios subir cualquier tipo de archivo PDF o de Texto (.txt) e interactuar directamente con él a través de consultas en lenguaje natural.
+¡Hola! Soy estudiante del **6to ciclo de Ingeniería de Software** y este es mi proyecto de portafolio personal. Desarrollé esta plataforma para aplicar de manera práctica conceptos de **Ingeniería de Inteligencia Artificial** y arquitecturas de datos avanzadas.
 
-El sistema autodetecta y adapta la interfaz al tema de tu documento, y utiliza el LLM (Gemini) para generar preguntas sugeridas clave basadas en su contenido desde el primer instante.
+Se trata de un **MVP (Producto Mínimo Viable)** de Preguntas y Respuestas (Q&A) basado en **RAG (Retrieval-Augmented Generation)**. Permite subir cualquier archivo PDF o de Texto (.txt) e interactuar directamente con él en lenguaje natural, obteniendo respuestas precisas respaldadas por las fuentes del propio documento.
+
+---
+
+## 🎯 Motivación y Aprendizaje
+El objetivo de este proyecto fue diseñar e implementar un sistema RAG desde cero, afrontando retos reales de desarrollo como:
+*   **Gestión de límites de APIs (Quota Management):** Implementación de reintentos activos con backoff exponencial y un visualizador dinámico en tiempo real (`APILife Gauge`) para monitorizar los tokens consumidos y evitar bloqueos.
+*   **Búsqueda semántica eficiente:** Uso de bases de datos vectoriales locales para recuperar información con precisión matemática sin depender de servicios de pago.
+*   **Experiencia de usuario fluida:** Diseño de una interfaz adaptativa que responde y se personaliza según el tema del documento ingresado.
 
 ---
 
@@ -26,8 +34,8 @@ El flujo de información de la plataforma se compone de dos fases:
 
 ### 1. Ingesta y Adaptación
 *   **Carga:** El usuario sube un archivo (.pdf o .txt). El sistema limpia la base vectorial anterior para evitar mezclas de contexto.
-*   **Segmentación (Chunking):** El texto se corta en bloques de **1000 caracteres** con un solape de **200 caracteres (20%)** para mantener la coherencia y evitar cortes en mitad de oraciones o fórmulas.
-*   **Vectorización (Embeddings):** Cada bloque se traduce a un vector numérico de 384 dimensiones usando el modelo local `all-MiniLM-L6-v2`.
+*   **Segmentación (Chunking):** El texto se corta en bloques de **1000 caracteres** con un solape de **200 caracteres (20%)** para mantener la coherencia y evitar cortes en mitad de oraciones.
+*   **Vectorización (Embeddings):** Cada bloque se traduce a un vector numérico de 3072 dimensiones usando la API de Gemini Embeddings.
 *   **Guardado en ChromaDB:** Los fragmentos vectorizados se guardan en la base local `chromadb_store/`.
 *   **Análisis Dinámico:** El LLM (**Gemini**) analiza un fragmento inicial del documento y genera **3 preguntas sugeridas de ejemplo** que se guardan en `data/metadata.json` para personalizar la web.
 
@@ -47,7 +55,8 @@ analizador_documentos_rag/
 ├── src/
 │   ├── config.py                   # Configuración del entorno, rutas y modelos
 │   ├── ingest.py                   # Lógica para indexar y autogenerar preguntas clave del documento
-│   └── query.py                    # Motor de recuperación semántica y generación con LangChain
+│   ├── query.py                    # Motor de recuperación semántica y generación con LangChain
+│   └── quota.py                    # Gestor de cuotas y lógica del APILife Gauge
 ├── app.py                          # Interfaz interactiva de Streamlit (UI universal adaptativa)
 └── requirements.txt                # Librerías y dependencias necesarias
 ```
