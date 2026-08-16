@@ -6,6 +6,20 @@ El sistema autodetecta y adapta la interfaz al tema de tu documento, y utiliza e
 
 ---
 
+## 🛠️ Tecnologías y Lenguajes de Desarrollo
+
+Este proyecto ha sido desarrollado utilizando el siguiente stack tecnológico principal:
+
+*   **Lenguaje de Programación:** Python 3.10+ (desarrollado y probado bajo Python 3.12).
+*   **Interfaz Gráfica / Frontend:** Python (utilizando la librería gráfica de visualización interactiva Streamlit).
+*   **Orquestación RAG:** LangChain & LangChain Community (para carga de documentos, división de texto y pipelines de prompts).
+*   **Base de Datos Vectorial:** ChromaDB (base de datos vectorial local incrustada y optimizada para búsquedas semánticas rápidas).
+*   **Modelos de Inteligencia Artificial:**
+    *   **LLM (Generación y Preguntas):** Google Gemini 1.5 Flash (a través del SDK oficial de Google GenAI).
+    *   **Embeddings (Búsqueda Vectorial):** Google Gemini Embeddings (modelo `models/gemini-embedding-001` de 3072 dimensiones).
+
+---
+
 ## 🏗️ Arquitectura de Datos RAG
 
 El flujo de información de la plataforma se compone de dos fases:
