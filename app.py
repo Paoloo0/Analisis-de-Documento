@@ -20,6 +20,7 @@ sys.path.append(str(Path(__file__).resolve().parent))
 from src.config import DATA_DIR, DB_DIR, GOOGLE_API_KEY, METADATA_FILE
 from src.ingest import ingest_file
 from src.query import query_assistant
+from src.quota import test_and_initialize_quota, get_gauge_html, get_quota, QUOTA_FILE
 
 # --- CARGAR METADATOS DEL DOCUMENTO ACTIVO ---
 if "uploader_key" not in st.session_state:
@@ -207,6 +208,13 @@ with st.sidebar:
     # Validar API Key (Verificar que exista y no sea el valor por defecto)
     is_key_configured = GOOGLE_API_KEY and "tu_clave" not in GOOGLE_API_KEY and GOOGLE_API_KEY.strip() != ""
     
+    # Inicializar cuota si no existe y la clave de API está configurada
+    if is_key_configured and not QUOTA_FILE.exists():
+        try:
+            test_and_initialize_quota(GOOGLE_API_KEY)
+        except Exception as e:
+            print(f"[!] Advertencia al inicializar cuota de API en carga: {e}")
+    
     if is_key_configured:
         st.markdown(
             '<div class="status-badge status-active">● API Key de Gemini Activa</div>', 
@@ -297,6 +305,7 @@ with st.sidebar:
                         importlib.reload(src.config)
                         importlib.reload(src.query)
                         importlib.reload(src.ingest)
+                        GOOGLE_API_KEY = src.config.GOOGLE_API_KEY
                         
                         # 4. Cambiar la clave del widget de texto para resetearlo a vacío
                         st.session_state["api_input_key"] = f"new_api_key_input_{int(time.time())}"
@@ -320,15 +329,19 @@ with st.sidebar:
                 st.error("Por favor, ingresa una clave válida.")
             else:
                 try:
-                    # 1. Guardar en .env
+                    # 1. Validar y analizar la nueva clave de API
+                    with st.spinner("Analizando la clave API y verificando su cuota..."):
+                        success, remaining, msg = test_and_initialize_quota(new_key.strip())
+                    
+                    # 2. Guardar en .env
                     env_path = Path(__file__).resolve().parent / ".env"
                     with open(env_path, "w", encoding="utf-8") as f:
                         f.write(f"GOOGLE_API_KEY={new_key.strip()}\n")
                     
-                    # 2. Actualizar variables de entorno de la sesión activa
+                    # 3. Actualizar variables de entorno de la sesión activa
                     os.environ["GOOGLE_API_KEY"] = new_key.strip()
                     
-                    # 3. Recargar módulos para asegurar consistencia
+                    # 4. Recargar módulos para asegurar consistencia
                     import importlib
                     import src.config
                     import src.query
@@ -336,11 +349,16 @@ with st.sidebar:
                     importlib.reload(src.config)
                     importlib.reload(src.query)
                     importlib.reload(src.ingest)
+                    GOOGLE_API_KEY = src.config.GOOGLE_API_KEY
                     
-                    # 4. Cambiar la clave del widget para forzar su recreación vacía
+                    # 5. Cambiar la clave del widget para forzar su recreación vacía
                     st.session_state["api_input_key"] = f"new_api_key_input_{int(time.time())}"
                     
-                    st.success("¡Clave de API guardada y actualizada exitosamente!")
+                    if remaining == 0:
+                        st.warning(f"⚠️ {msg}")
+                    else:
+                        st.success(f"¡{msg}!")
+                    
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
@@ -397,8 +415,17 @@ with st.sidebar:
 
 # Caso 1: No hay ningún documento indexado
 if not db_exists:
-    st.markdown('<div class="main-title">Analizador Inteligente de Documentos (RAG)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Sube cualquier archivo PDF o TXT y chatea con él con respuestas precisas libres de alucinaciones.</div>', unsafe_allow_html=True)
+    col_title, col_gauge = st.columns([0.7, 0.3])
+    with col_title:
+        st.markdown('<div class="main-title">Analizador Inteligente de Documentos (RAG)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="subtitle">Sube cualquier archivo PDF o TXT y chatea con él con respuestas precisas libres de alucinaciones.</div>', unsafe_allow_html=True)
+    with col_gauge:
+        if is_key_configured:
+            st.markdown(get_gauge_html(), unsafe_allow_html=True)
+            
+    # Mensaje global si se agotaron los tokens
+    if is_key_configured and get_quota()["remaining"] <= 0:
+        st.error("⚠️ Se agotaron los tokens de la api. Por favor, configura una nueva clave API en la barra lateral.")
     
     st.markdown("---")
     
@@ -429,14 +456,25 @@ if not db_exists:
                         st.success("¡Documento indexado con éxito! Cargando interfaz conversacional...")
                         st.rerun()
                     except Exception as e:
+                        import traceback
+                        traceback.print_exc()
                         st.error(f"Error al procesar: {e}")
     else:
         st.info("💡 Por favor, selecciona o arrastra un archivo de texto (.txt) o PDF (.pdf) en el recuadro superior para poder chatear con él.")
 
 # Caso 2: Ya existe un documento indexado y listo
 else:
-    st.markdown(f'<div class="main-title">Analizador de: {doc_title}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="subtitle">Preguntas y respuestas automáticas basadas en el documento activo <code>{file_name}</code>.</div>', unsafe_allow_html=True)
+    col_title, col_gauge = st.columns([0.7, 0.3])
+    with col_title:
+        st.markdown(f'<div class="main-title">Analizador de: {doc_title}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="subtitle">Preguntas y respuestas automáticas basadas en el documento activo <code>{file_name}</code>.</div>', unsafe_allow_html=True)
+    with col_gauge:
+        if is_key_configured:
+            st.markdown(get_gauge_html(), unsafe_allow_html=True)
+            
+    # Mensaje global si se agotaron los tokens
+    if is_key_configured and get_quota()["remaining"] <= 0:
+        st.error("⚠️ Se agotaron los tokens de la api. Por favor, configura una nueva clave API en la barra lateral.")
     
     # Restricción por falta de API Key
     if not is_key_configured:
@@ -466,34 +504,51 @@ else:
             placeholder="Ej: ¿Cuáles son las conclusiones o puntos principales descritos en el texto?"
         )
         
-        if user_query:
-            st.markdown("---")
-            with st.spinner("Buscando en el documento y redactando respuesta..."):
-                result = query_assistant(user_query)
-                
-            st.markdown("### 💬 Respuesta del Asistente")
-            st.markdown(
-                f'<div class="answer-box">{result["answer"]}</div>', 
-                unsafe_allow_html=True
-            )
+        if "last_query" not in st.session_state:
+            st.session_state.last_query = ""
+        if "last_response" not in st.session_state:
+            st.session_state.last_response = None
             
-            # Mostrar los fragmentos citados
-            st.markdown("### 📚 Fragmentos de Origen Citados")
-            if result["sources"]:
-                for i, doc in enumerate(result["sources"], 1):
-                    source_name = Path(doc.metadata.get("source", file_name)).name
-                    page = doc.metadata.get("page", None)
+        if user_query:
+            # Si es una nueva consulta, la procesamos
+            if user_query != st.session_state.last_query:
+                st.markdown("---")
+                with st.spinner("Buscando en el documento y redactando respuesta..."):
+                    result = query_assistant(user_query)
+                    st.session_state.last_query = user_query
+                    st.session_state.last_response = result
                     
-                    if page is not None:
-                        page_str = f" | Página {page + 1}"
-                    else:
-                        page_str = ""
-                        
-                    st.markdown(f"""
-                    <div class="source-card">
-                        <div class="source-header">Fragmento {i}: {source_name}{page_str}</div>
-                        <div class="source-body">"{doc.page_content}"</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Si se agotaron los tokens durante esta llamada, recargamos la página
+                    # para actualizar el APILife Gauge arriba inmediatamente
+                    if get_quota()["remaining"] <= 0:
+                        st.rerun()
             else:
-                st.write("No se recuperaron fragmentos específicos para esta consulta.")
+                result = st.session_state.last_response
+                
+            if result:
+                st.markdown("### 💬 Respuesta del Asistente")
+                st.markdown(
+                    f'<div class="answer-box">{result["answer"]}</div>', 
+                    unsafe_allow_html=True
+                )
+                
+                # Mostrar los fragmentos citados
+                st.markdown("### 📚 Fragmentos de Origen Citados")
+                if result["sources"]:
+                    for i, doc in enumerate(result["sources"], 1):
+                        source_name = Path(doc.metadata.get("source", file_name)).name
+                        page = doc.metadata.get("page", None)
+                        
+                        if page is not None:
+                            page_str = f" | Página {page + 1}"
+                        else:
+                            page_str = ""
+                            
+                        st.markdown(f"""
+                        <div class="source-card">
+                            <div class="source-header">Fragmento {i}: {source_name}{page_str}</div>
+                            <div class="source-body">"{doc.page_content}"</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.write("No se recuperaron fragmentos específicos para esta consulta.")

@@ -11,6 +11,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from src.quota import get_quota, use_quota, set_quota_to_zero
 
 def get_active_document_title() -> str:
     """
@@ -89,6 +90,10 @@ def expand_query_for_retrieval(question: str) -> str:
         return question
         
     try:
+        # Verificar si se agotaron los tokens de la API
+        if get_quota(GOOGLE_API_KEY)["remaining"] <= 0:
+            raise ValueError("Se agotaron los tokens de la api")
+            
         llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL_NAME,
             google_api_key=GOOGLE_API_KEY,
@@ -106,6 +111,7 @@ def expand_query_for_retrieval(question: str) -> str:
         )
         
         response = llm.invoke(prompt)
+        use_quota(1, GOOGLE_API_KEY)  # Descontar 1 intento
         response_text = response.content
         if isinstance(response_text, list):
             response_text = "".join(part if isinstance(part, str) else part.get("text", "") for part in response_text)
@@ -117,6 +123,9 @@ def expand_query_for_retrieval(question: str) -> str:
         print(f"[RAG] Consulta expandida para búsqueda: '{search_query}'")
         return search_query
     except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            set_quota_to_zero(GOOGLE_API_KEY)
         print(f"[!] Advertencia al expandir consulta: {e}")
         return question
 
@@ -129,6 +138,10 @@ def query_assistant(question: str):
     4. Envía el contexto y la pregunta original al LLM.
     """
     try:
+        # Verificar si se agotaron los tokens de la API
+        if get_quota(GOOGLE_API_KEY)["remaining"] <= 0:
+            raise ValueError("Se agotaron los tokens de la api")
+            
         vector_store = load_vector_store()
         
         # Usamos Maximum Marginal Relevance (MMR) con lambda_mult=0.7, k=10 y fetch_k=30 para ampliar el espectro de búsqueda
@@ -145,6 +158,10 @@ def query_assistant(question: str):
             raise ValueError(
                 "La API Key de Google (GOOGLE_API_KEY) no está configurada o es inválida en el archivo .env."
             )
+            
+        # Volver a verificar la cuota justo antes de llamar al LLM
+        if get_quota(GOOGLE_API_KEY)["remaining"] <= 0:
+            raise ValueError("Se agotaron los tokens de la api")
             
         llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL_NAME,
@@ -185,6 +202,7 @@ def query_assistant(question: str):
             "context": context_text,
             "question": question
         })
+        use_quota(1, GOOGLE_API_KEY)  # Descontar 1 intento
         
         return {
             "answer": answer,
@@ -193,8 +211,9 @@ def query_assistant(question: str):
     except Exception as e:
         error_msg = str(e)
         if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            set_quota_to_zero(GOOGLE_API_KEY)
             return {
-                "answer": "Se ha superado temporalmente el límite de la API gratuita. Por favor, espera unos segundos e intenta nuevamente.",
+                "answer": "Se agotaron los tokens de la api. Por favor, configura una nueva clave API en la barra lateral.",
                 "sources": []
             }
         return {

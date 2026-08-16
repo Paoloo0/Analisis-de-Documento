@@ -12,6 +12,7 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
+from src.quota import get_quota, use_quota, set_quota_to_zero
 
 def generate_suggested_questions(document_sample: str, doc_name: str) -> list:
     """
@@ -33,6 +34,10 @@ def generate_suggested_questions(document_sample: str, doc_name: str) -> list:
         ]
         
     try:
+        # Verificar si se agotaron los tokens de la API
+        if get_quota(GOOGLE_API_KEY)["remaining"] <= 0:
+            raise ValueError("Se agotaron los tokens de la api")
+            
         print("[*] Consultando a Gemini para generar preguntas sugeridas dinámicas...")
         llm = ChatGoogleGenerativeAI(
             model=LLM_MODEL_NAME,
@@ -52,6 +57,7 @@ def generate_suggested_questions(document_sample: str, doc_name: str) -> list:
         
         # Llamar al modelo
         response = llm.invoke(prompt)
+        use_quota(1, GOOGLE_API_KEY)  # Descontar 1 intento
         response_text = response.content
         if isinstance(response_text, list):
             response_text = "".join(part if isinstance(part, str) else part.get("text", "") for part in response_text)
@@ -72,6 +78,9 @@ def generate_suggested_questions(document_sample: str, doc_name: str) -> list:
         raise ValueError("El formato retornado no es una lista válida.")
         
     except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            set_quota_to_zero(GOOGLE_API_KEY)
         print(f"[!] Error al generar preguntas automáticas ({e}). Se usarán preguntas de respaldo.")
         if "transito" in doc_name.lower() or "reglamento" in doc_name.lower():
             return [

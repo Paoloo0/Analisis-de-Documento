@@ -2,6 +2,7 @@ import os
 import time
 from langchain_core.embeddings import Embeddings
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from src.quota import get_quota, use_quota, set_quota_to_zero
 
 class SafeGeminiEmbeddings(Embeddings):
     """
@@ -15,6 +16,7 @@ class SafeGeminiEmbeddings(Embeddings):
             model="models/gemini-embedding-001",
             google_api_key=google_api_key
         )
+        self.google_api_key = google_api_key
         self.batch_size = batch_size
         self.sleep_seconds = sleep_seconds
 
@@ -23,6 +25,10 @@ class SafeGeminiEmbeddings(Embeddings):
         total_texts = len(texts)
         
         for i in range(0, total_texts, self.batch_size):
+            # Verificar si se agotaron los tokens de la API
+            if get_quota(self.google_api_key)["remaining"] <= 0:
+                raise ValueError("Se agotaron los tokens de la api")
+                
             batch = texts[i:i + self.batch_size]
             batch_num = (i // self.batch_size) + 1
             total_batches = (total_texts + self.batch_size - 1) // self.batch_size
@@ -34,11 +40,16 @@ class SafeGeminiEmbeddings(Embeddings):
                 try:
                     batch_embeds = self.base.embed_documents(batch)
                     all_embeddings.extend(batch_embeds)
+                    use_quota(1, self.google_api_key)  # Restar 1 intento tras éxito
                     break
                 except Exception as e:
                     error_msg = str(e)
                     # Si es error de cuota (429) o agotado (RESOURCE_EXHAUSTED)
                     if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                        if attempt == 5:
+                            print(f"[-] Error definitivo por cuota en lote {batch_num}: {e}")
+                            set_quota_to_zero(self.google_api_key)  # Ajustar cuota a 0 inmediatamente
+                            raise e
                         wait_time = 15 * (attempt + 1)
                         print(f"[!] Límite de cuota Gemini alcanzado (429). Detalles: {error_msg}. Esperando {wait_time}s para reintentar...")
                         time.sleep(wait_time)
@@ -55,14 +66,23 @@ class SafeGeminiEmbeddings(Embeddings):
         return all_embeddings
 
     def embed_query(self, text):
+        # Verificar si se agotaron los tokens de la API
+        if get_quota(self.google_api_key)["remaining"] <= 0:
+            raise ValueError("Se agotaron los tokens de la api")
+            
         # Para consultas individuales no hay problema de límite de velocidad,
         # pero reintentamos de forma segura si la API está muy saturada.
         for attempt in range(5):
             try:
-                return self.base.embed_query(text)
+                res = self.base.embed_query(text)
+                use_quota(1, self.google_api_key)  # Restar 1 intento tras éxito
+                return res
             except Exception as e:
                 error_msg = str(e)
                 if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                    if attempt == 4:
+                        set_quota_to_zero(self.google_api_key)  # Ajustar cuota a 0 inmediatamente
+                        raise e
                     time.sleep(10)
                 else:
                     if attempt == 4:
