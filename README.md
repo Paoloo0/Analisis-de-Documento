@@ -1,6 +1,6 @@
 # 📂 Analizador Inteligente de Documentos (RAG)
 
-¡Hola! Soy estudiante del **6to ciclo de Ingeniería de Software** y este es mi proyecto de portafolio personal. Desarrollé esta plataforma para aplicar de manera práctica conceptos de **Ingeniería de Inteligencia Artificial** y arquitecturas de datos avanzadas.
+Desarrollé esta plataforma para aplicar de manera práctica conceptos de **Ingeniería de Inteligencia Artificial** y arquitecturas de datos avanzadas.
 
 Se trata de un **MVP (Producto Mínimo Viable)** de Preguntas y Respuestas (Q&A) basado en **RAG (Retrieval-Augmented Generation)**. Permite subir cualquier archivo PDF o de Texto (.txt) e interactuar directamente con él en lenguaje natural, obteniendo respuestas precisas respaldadas por las fuentes del propio documento.
 
